@@ -65,8 +65,13 @@ RADIO_BROWSER_BASE_URL=https://de1.api.radio-browser.info
 - `src/lib/player/providers/spotify.ts` Spotify Web Playback SDK provider
 - `src/lib/storage.ts` MVP persistence (localStorage) with interfaces ready for DB migration
 
+## Spotify control
+
+- Search and play tracks/playlists from the Spotify panel in `/player`.
+- Playback is transferred automatically to the Web Playback SDK device.
+- Basic controls: next/prev and queue.
+
 ## TODOs
 
-- Transfer playback to the Web Playback SDK device via Spotify Web API after login.
 - Add Neon/Postgres storage driver and migrate `storage.ts`.
 - Expand skin catalog.

@@ -15,15 +15,17 @@ const loadSpotifySdk = () =>
   new Promise<void>((resolve, reject) => {
     if (typeof window === "undefined") return reject();
     if ((window as Window).Spotify) return resolve();
+
+    (window as Window).onSpotifyWebPlaybackSDKReady = () => {
+      resolve();
+    };
+
     const existing = document.querySelector(`script[src="${SDK_URL}"]`);
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      return;
-    }
+    if (existing) return;
+
     const script = document.createElement("script");
     script.src = SDK_URL;
     script.async = true;
-    script.onload = () => resolve();
     script.onerror = () => reject(new Error("Spotify SDK failed to load"));
     document.body.appendChild(script);
   });
@@ -70,7 +72,7 @@ export class SpotifyProvider implements IProvider {
     this.player.addListener("ready", ({ device_id }) => {
       this.deviceId = device_id;
       this.setState({ status: "paused" });
-      // TODO: Transfer playback to this device using Spotify Web API.
+      this.transferPlayback(device_id);
     });
 
     this.player.addListener("player_state_changed", (state: DeviceState | null) => {
@@ -91,6 +93,10 @@ export class SpotifyProvider implements IProvider {
     if (!connected) {
       this.setState({ status: "error", error: "Spotify connect failed" });
     }
+  }
+
+  getDeviceId() {
+    return this.deviceId;
   }
 
   async play() {
@@ -136,6 +142,18 @@ export class SpotifyProvider implements IProvider {
       return data.accessToken ?? null;
     } catch {
       return null;
+    }
+  }
+
+  private async transferPlayback(deviceId: string) {
+    try {
+      await fetch("/api/spotify/transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId, play: false }),
+      });
+    } catch {
+      // Ignore transfer failures; user can manually select device in Spotify.
     }
   }
 }

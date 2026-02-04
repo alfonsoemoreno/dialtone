@@ -1,5 +1,6 @@
 import { SkinHost } from "@/components/skins/SkinHost";
 import { RadioCatalog } from "@/components/radio/RadioCatalog";
+import { SpotifyBrowser } from "@/components/spotify/SpotifyBrowser";
 import Link from "next/link";
 
 export default function PlayerPage() {
@@ -14,7 +15,10 @@ export default function PlayerPage() {
       </header>
       <div className="player-layout">
         <SkinHost />
-        <RadioCatalog />
+        <div className="side-stack">
+          <RadioCatalog />
+          <SpotifyBrowser />
+        </div>
       </div>
     </main>
   );
