@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bebas_Neue, IBM_Plex_Sans } from "next/font/google";
+import { Bebas_Neue, IBM_Plex_Sans, Oswald } from "next/font/google";
 import "./globals.css";
 
 const displayFont = Bebas_Neue({
@@ -11,6 +11,12 @@ const displayFont = Bebas_Neue({
 const bodyFont = IBM_Plex_Sans({
   weight: ["300", "400", "500", "600"],
   variable: "--font-body",
+  subsets: ["latin"],
+});
+
+const condensedFont = Oswald({
+  weight: ["300", "400", "500", "600"],
+  variable: "--font-condensed",
   subsets: ["latin"],
 });
 
@@ -26,7 +32,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${displayFont.variable} ${bodyFont.variable}`}>
+      <body
+        className={`${displayFont.variable} ${bodyFont.variable} ${condensedFont.variable}`}
+      >
         {children}
       </body>
     </html>
