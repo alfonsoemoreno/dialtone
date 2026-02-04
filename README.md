@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Vintage Audio Player (Next.js 16)
 
-## Getting Started
+A vintage-themed web audio player with pluggable skins, radio streaming, and Spotify Web Playback SDK (no iframe embeds). Built with Next.js 16, App Router, TypeScript, ESLint, and Tailwind.
 
-First, run the development server:
+## Local setup
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Spotify setup (PKCE)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Create a Spotify app in the Spotify Developer Dashboard.
+2. Add the redirect URI you will use locally:
+   - Example: `http://localhost:3000/api/auth/spotify/callback`
+3. Create `.env.local` in the project root with:
 
-## Learn More
+```bash
+SPOTIFY_CLIENT_ID=your_spotify_client_id
+SPOTIFY_REDIRECT_URI=http://localhost:3000/api/auth/spotify/callback
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+```
 
-To learn more about Next.js, take a look at the following resources:
+Notes:
+- Tokens are stored in `httpOnly` cookies for the session. Refresh tokens are handled server-side.
+- The Web Playback SDK requires the user to have a Spotify Premium account.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Routes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `/` skin selection
+- `/player` player UI
 
-## Deploy on Vercel
+## Radio catalog
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Radio stations are defined in `src/data/radios.json`. If a stream fails, replace its `streamUrl` with a working URL.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Radio Browser (open directory)
+
+This project also integrates Radio Browser (no API key), via `/api/radios/search`. It queries the public Radio Browser network and returns station lists without proxying audio streams (stream URLs play directly in the browser).
+
+Optional env:
+
+```bash
+RADIO_BROWSER_BASE_URL=https://de1.api.radio-browser.info
+```
+
+## Deploy to Vercel
+
+1. Push this repo to GitHub.
+2. Import in Vercel.
+3. Add env vars in Vercel:
+   - `SPOTIFY_CLIENT_ID`
+   - `SPOTIFY_REDIRECT_URI` (must match your Vercel domain)
+   - `NEXT_PUBLIC_BASE_URL`
+4. Deploy.
+
+## Architecture
+
+- `src/lib/player/types.ts` provider contract
+- `src/lib/player/PlayerHub.ts` orchestration (only one active source)
+- `src/lib/player/providers/radio.ts` HTMLAudioElement provider
+- `src/lib/player/providers/spotify.ts` Spotify Web Playback SDK provider
+- `src/lib/storage.ts` MVP persistence (localStorage) with interfaces ready for DB migration
+
+## TODOs
+
+- Transfer playback to the Web Playback SDK device via Spotify Web API after login.
+- Add Neon/Postgres storage driver and migrate `storage.ts`.
+- Expand skin catalog.

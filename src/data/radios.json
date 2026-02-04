@@ -1,0 +1,72 @@
+[
+  {
+    "id": "groovesalad",
+    "name": "SomaFM Groove Salad",
+    "streamUrl": "https://icecast.somafm.com/groovesalad",
+    "country": "US",
+    "genre": "Downtempo"
+  },
+  {
+    "id": "dronezone",
+    "name": "SomaFM Drone Zone",
+    "streamUrl": "https://icecast.somafm.com/dronezone",
+    "country": "US",
+    "genre": "Ambient"
+  },
+  {
+    "id": "lush",
+    "name": "SomaFM Lush",
+    "streamUrl": "https://icecast.somafm.com/lush",
+    "country": "US",
+    "genre": "Chill"
+  },
+  {
+    "id": "secretagent",
+    "name": "SomaFM Secret Agent",
+    "streamUrl": "https://icecast.somafm.com/secretagent",
+    "country": "US",
+    "genre": "Lounge"
+  },
+  {
+    "id": "beatblender",
+    "name": "SomaFM Beat Blender",
+    "streamUrl": "https://icecast.somafm.com/beatblender",
+    "country": "US",
+    "genre": "Electronic"
+  },
+  {
+    "id": "deepspaceone",
+    "name": "SomaFM Deep Space One",
+    "streamUrl": "https://icecast.somafm.com/deepspaceone",
+    "country": "US",
+    "genre": "Ambient"
+  },
+  {
+    "id": "cliqhop",
+    "name": "SomaFM cliqhop idm",
+    "streamUrl": "https://icecast.somafm.com/cliqhop",
+    "country": "US",
+    "genre": "IDM"
+  },
+  {
+    "id": "sf1033",
+    "name": "SomaFM SF 10-33",
+    "streamUrl": "https://icecast.somafm.com/sf1033",
+    "country": "US",
+    "genre": "Ambient"
+  },
+  {
+    "id": "spacestation",
+    "name": "SomaFM Space Station",
+    "streamUrl": "https://icecast.somafm.com/spacestation",
+    "country": "US",
+    "genre": "Space"
+  },
+  {
+    "id": "indiepop",
+    "name": "SomaFM Indie Pop Rocks",
+    "streamUrl": "https://icecast.somafm.com/indiepop",
+    "country": "US",
+    "genre": "Indie"
+  }
+]
