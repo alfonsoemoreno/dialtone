@@ -35,11 +35,7 @@ Notes:
 
 ## Radio catalog
 
-Radio stations are defined in `src/data/radios.json`. If a stream fails, replace its `streamUrl` with a working URL.
-
-### Radio Browser (open directory)
-
-This project also integrates Radio Browser (no API key), via `/api/radios/search`. It queries the public Radio Browser network and returns station lists without proxying audio streams (stream URLs play directly in the browser).
+Radio is powered by Radio Browser (no API key), via `/api/radios/search`. It queries the public Radio Browser network and returns station lists without proxying audio streams (stream URLs play directly in the browser).
 
 Optional env:
 
@@ -67,9 +63,9 @@ RADIO_BROWSER_BASE_URL=https://de1.api.radio-browser.info
 
 ## Spotify control
 
-- Search and play tracks/playlists from the Spotify panel in `/player`.
+- Search and play tracks, playlists, and albums from the Spotify panel in `/player`.
 - Playback is transferred automatically to the Web Playback SDK device.
-- Basic controls: next/prev and queue.
+- Basic controls: next/prev, queue, and viewing tracks inside albums/playlists.
 
 ## TODOs
 

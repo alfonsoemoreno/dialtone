@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import radios from "@/data/radios.json";
 import { usePlayerHub } from "@/lib/player/usePlayerHub";
 import type { PlayerState } from "@/lib/player/types";
 import { RadioProvider } from "@/lib/player/providers/radio";
@@ -30,7 +29,6 @@ export const RadioCatalog = () => {
   const [query, setQuery] = useState("");
   const [state, setState] = useState<PlayerState>(defaultState);
   const [favorites, setFavorites] = useState<string[]>([]);
-  const [source, setSource] = useState<"curated" | "radioBrowser">("curated");
   const [results, setResults] = useState<Station[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [country, setCountry] = useState("Chile");
@@ -38,30 +36,15 @@ export const RadioCatalog = () => {
   useEffect(() => {
     const settings = storage.getSettings();
     setFavorites(settings.favorites);
-    const lastStation = (radios as Station[]).find(
-      (station) => station.id === settings.lastStationId
-    );
-    if (lastStation) {
-      const provider = hub.getProvider("radio") as RadioProvider | undefined;
-      provider?.setStation(lastStation.name, lastStation.streamUrl);
-    }
     const unsubscribe = hub.onStateChange((next) => setState(next));
     return () => unsubscribe();
   }, [hub]);
 
   const filtered = useMemo(() => {
-    if (source === "radioBrowser") return results;
-    const term = query.trim().toLowerCase();
-    if (!term) return radios as Station[];
-    return (radios as Station[]).filter(
-      (station) =>
-        station.name.toLowerCase().includes(term) ||
-        station.genre.toLowerCase().includes(term)
-    );
-  }, [query, results, source]);
+    return results;
+  }, [results]);
 
   useEffect(() => {
-    if (source !== "radioBrowser") return;
     const controller = new AbortController();
     const run = async () => {
       setIsSearching(true);
@@ -89,7 +72,7 @@ export const RadioCatalog = () => {
       controller.abort();
       clearTimeout(timeout);
     };
-  }, [query, country, source]);
+  }, [query, country]);
 
   const handleSelect = async (station: Station) => {
     const provider = hub.getProvider("radio") as RadioProvider | undefined;
@@ -107,20 +90,6 @@ export const RadioCatalog = () => {
 
   return (
     <div className="radio-catalog">
-      <div className="radio-source-toggle">
-        <button
-          className={source === "curated" ? "active" : ""}
-          onClick={() => setSource("curated")}
-        >
-          Curated
-        </button>
-        <button
-          className={source === "radioBrowser" ? "active" : ""}
-          onClick={() => setSource("radioBrowser")}
-        >
-          Radio Browser
-        </button>
-      </div>
       <div className="radio-search">
         <input
           value={query}
@@ -128,18 +97,16 @@ export const RadioCatalog = () => {
           placeholder="Search by name or genre"
         />
       </div>
-      {source === "radioBrowser" && (
-        <div className="radio-filters">
-          <input
-            value={country}
-            onChange={(event) => setCountry(event.target.value)}
-            placeholder="Country (e.g. Chile)"
-          />
-          <span className="radio-status">
-            {isSearching ? "Searching..." : `${filtered.length} stations`}
-          </span>
-        </div>
-      )}
+      <div className="radio-filters">
+        <input
+          value={country}
+          onChange={(event) => setCountry(event.target.value)}
+          placeholder="Country (e.g. Chile)"
+        />
+        <span className="radio-status">
+          {isSearching ? "Searching..." : `${filtered.length} stations`}
+        </span>
+      </div>
       <div className="radio-list">
         {filtered.map((station) => (
           <div key={station.id} className="radio-item">
@@ -162,7 +129,7 @@ export const RadioCatalog = () => {
         ))}
       </div>
       <div className="radio-note">
-        If a stream fails, replace `streamUrl` entries in `src/data/radios.json`.
+        Powered by Radio Browser. Streams play directly from their source.
       </div>
     </div>
   );

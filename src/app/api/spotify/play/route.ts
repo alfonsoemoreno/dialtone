@@ -5,7 +5,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as {
     uri?: string;
     deviceId?: string;
-    type?: "track" | "playlist";
+    type?: "track" | "context";
   };
 
   if (!body.uri) {
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   if (body.deviceId) params.set("device_id", body.deviceId);
 
   const payload =
-    body.type === "playlist"
+    body.type === "context"
       ? { context_uri: body.uri }
       : { uris: [body.uri] };
 

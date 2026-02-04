@@ -12,12 +12,29 @@ export async function GET(request: Request) {
 
   const params = new URLSearchParams({
     q,
-    type: "track,playlist",
+    type: "track,playlist,album",
     limit: String(Math.min(Math.max(limit, 5), 20)),
+    market: "from_token",
   });
 
   try {
-    const data = await spotifyFetch<any>(`/search?${params.toString()}`);
+    let data = await spotifyFetch<any>(`/search?${params.toString()}`);
+
+    const hasAny =
+      (data.tracks?.items?.length ?? 0) +
+        (data.playlists?.items?.length ?? 0) +
+        (data.albums?.items?.length ?? 0) >
+      0;
+
+    if (!hasAny) {
+      const fallbackParams = new URLSearchParams({
+        q: `artist:${q}`,
+        type: "track,album",
+        limit: String(Math.min(Math.max(limit, 5), 20)),
+        market: "from_token",
+      });
+      data = await spotifyFetch<any>(`/search?${fallbackParams.toString()}`);
+    }
 
     const tracks = (data.tracks?.items ?? []).map((track: any) => ({
       id: track.id,
@@ -36,8 +53,16 @@ export async function GET(request: Request) {
       image: pl.images?.[0]?.url ?? null,
     }));
 
-    return NextResponse.json({ tracks, playlists });
+    const albums = (data.albums?.items ?? []).map((album: any) => ({
+      id: album.id,
+      name: album.name,
+      uri: album.uri,
+      artists: album.artists?.map((a: any) => a.name).join(", ") ?? "",
+      image: album.images?.[0]?.url ?? null,
+    }));
+
+    return NextResponse.json({ tracks, playlists, albums });
   } catch (error) {
-    return NextResponse.json({ tracks: [], playlists: [], error: true });
+    return NextResponse.json({ tracks: [], playlists: [], albums: [], error: true });
   }
 }

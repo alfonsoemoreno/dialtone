@@ -21,13 +21,33 @@ type PlaylistResult = {
   image: string | null;
 };
 
+type AlbumResult = {
+  id: string;
+  name: string;
+  uri: string;
+  artists: string;
+  image: string | null;
+};
+
+type TrackLite = {
+  id: string;
+  name: string;
+  uri: string;
+  artists: string;
+};
+
 export const SpotifyBrowser = () => {
   const hub = usePlayerHub();
   const [query, setQuery] = useState("");
   const [tracks, setTracks] = useState<TrackResult[]>([]);
   const [playlists, setPlaylists] = useState<PlaylistResult[]>([]);
+  const [albums, setAlbums] = useState<AlbumResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<{ type: "album" | "playlist"; id: string } | null>(
+    null
+  );
+  const [expandedTracks, setExpandedTracks] = useState<TrackLite[]>([]);
 
   useEffect(() => {
     const provider = hub.getProvider("spotify") as SpotifyProvider | undefined;
@@ -50,18 +70,21 @@ export const SpotifyBrowser = () => {
       const data = (await res.json()) as {
         tracks: TrackResult[];
         playlists: PlaylistResult[];
+        albums: AlbumResult[];
       };
       setTracks(data.tracks ?? []);
       setPlaylists(data.playlists ?? []);
+      setAlbums(data.albums ?? []);
     } catch {
       setTracks([]);
       setPlaylists([]);
+      setAlbums([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePlay = async (uri: string, type: "track" | "playlist") => {
+  const handlePlay = async (uri: string, type: "track" | "context") => {
     await fetch("/api/spotify/play", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -85,14 +108,31 @@ export const SpotifyBrowser = () => {
     await fetch("/api/spotify/previous", { method: "POST" });
   };
 
-  const hasResults = tracks.length > 0 || playlists.length > 0;
+  const handleExpand = async (type: "album" | "playlist", id: string) => {
+    if (expanded?.id === id) {
+      setExpanded(null);
+      setExpandedTracks([]);
+      return;
+    }
+
+    setExpanded({ type, id });
+    try {
+      const res = await fetch(`/api/spotify/${type}/${id}`);
+      const data = (await res.json()) as { tracks: TrackLite[] };
+      setExpandedTracks(data.tracks ?? []);
+    } catch {
+      setExpandedTracks([]);
+    }
+  };
+
+  const hasResults = tracks.length > 0 || playlists.length > 0 || albums.length > 0;
 
   return (
     <div className="spotify-browser">
       <div className="spotify-header">
         <div>
           <div className="spotify-title">Spotify Control</div>
-          <div className="spotify-sub">Search tracks and playlists.</div>
+          <div className="spotify-sub">Search tracks, albums, and playlists.</div>
         </div>
         <div className="spotify-controls">
           <button onClick={handlePrev}>Prev</button>
@@ -103,7 +143,7 @@ export const SpotifyBrowser = () => {
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search tracks or playlists"
+          placeholder="Search tracks, albums, or playlists"
         />
         <button onClick={search}>{loading ? "..." : "Search"}</button>
       </div>
@@ -135,13 +175,51 @@ export const SpotifyBrowser = () => {
                   <div className="spotify-meta">by {playlist.owner}</div>
                 </div>
                 <div className="spotify-actions">
-                  <button onClick={() => handlePlay(playlist.uri, "playlist")}>
+                  <button onClick={() => handlePlay(playlist.uri, "context")}>
                     Play
+                  </button>
+                  <button onClick={() => handleExpand("playlist", playlist.id)}>
+                    {expanded?.id === playlist.id ? "Hide" : "Tracks"}
                   </button>
                 </div>
               </div>
             ))}
           </div>
+          <div className="spotify-section">
+            <div className="spotify-section-title">Albums</div>
+            {albums.map((album) => (
+              <div key={album.id} className="spotify-item">
+                {album.image && <img src={album.image} alt={album.name} />}
+                <div>
+                  <div className="spotify-name">{album.name}</div>
+                  <div className="spotify-meta">{album.artists}</div>
+                </div>
+                <div className="spotify-actions">
+                  <button onClick={() => handlePlay(album.uri, "context")}>Play</button>
+                  <button onClick={() => handleExpand("album", album.id)}>
+                    {expanded?.id === album.id ? "Hide" : "Tracks"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {expanded && expandedTracks.length > 0 && (
+            <div className="spotify-section">
+              <div className="spotify-section-title">Tracks in selection</div>
+              {expandedTracks.map((track) => (
+                <div key={track.id} className="spotify-item spotify-track">
+                  <div>
+                    <div className="spotify-name">{track.name}</div>
+                    <div className="spotify-meta">{track.artists}</div>
+                  </div>
+                  <div className="spotify-actions">
+                    <button onClick={() => handlePlay(track.uri, "track")}>Play</button>
+                    <button onClick={() => handleQueue(track.uri)}>Queue</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <div className="spotify-empty">Search Spotify to load tracks.</div>
