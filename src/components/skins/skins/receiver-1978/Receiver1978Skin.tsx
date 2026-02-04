@@ -88,12 +88,18 @@ export const Receiver1978Skin = ({
             </button>
           </div>
           <div className="vu-meter">
-            <div
-              className={`vu-bar ${state.status === "playing" ? "playing" : ""}`}
-            />
-            <div
-              className={`vu-bar ${state.status === "playing" ? "playing" : ""}`}
-            />
+            <div className="vu-bar">
+              <span
+                className="vu-fill"
+                style={{ height: `${Math.round((state.vuLevel ?? 0) * 100)}%` }}
+              />
+            </div>
+            <div className="vu-bar">
+              <span
+                className="vu-fill"
+                style={{ height: `${Math.round((state.vuLevel ?? 0) * 100)}%` }}
+              />
+            </div>
           </div>
         </div>
         <div className="receiver-bottom">

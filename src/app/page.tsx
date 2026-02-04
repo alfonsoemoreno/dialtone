@@ -1,9 +1,5 @@
-import { SkinSelector } from "@/components/skins/SkinSelector";
+import { redirect } from "next/navigation";
 
 export default function HomePage() {
-  return (
-    <main className="page">
-      <SkinSelector />
-    </main>
-  );
+  redirect("/player");
 }

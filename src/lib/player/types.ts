@@ -17,6 +17,7 @@ export type ProviderState = {
   title?: string;
   artist?: string;
   stationName?: string;
+  vuLevel?: number;
   error?: string;
 };
 

@@ -64,7 +64,12 @@ export const PioneerED110Skin = ({
               <div className="signal-tile">4</div>
               <div className="vu-box">
                 <div className="vu-label">Signal</div>
-                <div className={`vu-needle ${state.status === "playing" ? "playing" : ""}`} />
+                <div
+                  className="vu-needle"
+                  style={{
+                    transform: `rotate(${(state.vuLevel ?? 0) * 32 - 12}deg)`,
+                  }}
+                />
               </div>
             </div>
             <div className="dial-scale">

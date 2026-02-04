@@ -297,20 +297,7 @@ button.primary {
   background: #9fd1e3;
   transform-origin: left center;
   transform: rotate(-12deg);
-  transition: transform 0.3s ease;
-}
-
-.pioneer-ed110 .vu-needle.playing {
-  animation: needle 0.5s ease-in-out infinite alternate;
-}
-
-@keyframes needle {
-  from {
-    transform: rotate(-12deg);
-  }
-  to {
-    transform: rotate(18deg);
-  }
+  transition: transform 0.12s ease;
 }
 
 .pioneer-ed110 .dial-scale {
@@ -537,6 +524,283 @@ button.primary {
   border: none;
 }
 
+.pioneer-classic .pioneer-classic-stage {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  overflow: hidden;
+}
+
+.pioneer-classic .pioneer-classic-shell {
+  position: relative;
+  width: 2844px;
+  height: 1222px;
+  transform: scale(0.32);
+  transform-origin: top left;
+}
+
+.pioneer-classic .pioneer-classic-shell.show-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("/pioner-crop.png") center/contain no-repeat;
+  opacity: 0.35;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+.pioneer-classic .pioneer-classic-wood {
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #7b5a3c 0%, #6c4f35 100%);
+  box-shadow: inset 0 0 0 14px #5e432c, inset 0 0 40px rgba(0, 0, 0, 0.35);
+}
+
+.pioneer-classic .pioneer-classic-face {
+  position: absolute;
+  inset: 82px 90px;
+  background: linear-gradient(180deg, #e4e1d7 0%, #cfc8bb 50%, #f2f1ea 100%);
+  border-radius: 12px;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.25);
+  border: 1px solid #b9b1a4;
+  padding: 48px 60px 40px;
+}
+
+.pioneer-classic .pioneer-classic-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.12) 1px,
+    rgba(0, 0, 0, 0.03) 1px,
+    rgba(0, 0, 0, 0.03) 2px
+  );
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.pioneer-classic .pioneer-classic-title {
+  position: absolute;
+  top: 84px;
+  left: 150px;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-condensed), sans-serif;
+  text-transform: uppercase;
+  color: #252424;
+}
+
+.pioneer-classic .pioneer-classic-title .logo {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.pioneer-classic .pioneer-classic-title .model {
+  font-size: 0.72rem;
+  color: #3d3a35;
+}
+
+.pioneer-classic .pioneer-classic-dial {
+  position: absolute;
+  top: 238px;
+  left: 132px;
+  right: 132px;
+  height: 210px;
+  display: grid;
+  grid-template-columns: 300px 1fr 300px;
+  align-items: center;
+  gap: 18px;
+  background: #0f1116;
+  border-radius: 16px;
+  padding: 24px 28px;
+  border: 1px solid #1f232a;
+}
+
+.pioneer-classic .pioneer-classic-vu {
+  background: #f1e4bf;
+  border: 2px solid #2e2a24;
+  border-radius: 10px;
+  height: 150px;
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.pioneer-classic .pioneer-classic-vu .vu-label {
+  position: absolute;
+  bottom: 10px;
+  left: 18px;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  color: #2e2a24;
+}
+
+.pioneer-classic .pioneer-classic-tuning {
+  position: relative;
+  height: 150px;
+  display: grid;
+  place-items: center;
+}
+
+.pioneer-classic .dial-arc {
+  width: 100%;
+  height: 96px;
+  border-top: 2px solid #222;
+  border-radius: 50%;
+}
+
+.pioneer-classic .dial-needle {
+  position: absolute;
+  width: 2px;
+  height: 96px;
+  background: #d33b3b;
+  transform-origin: bottom center;
+  bottom: 8px;
+}
+
+.pioneer-classic .dial-scale {
+  position: absolute;
+  top: 2px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  font-size: 0.75rem;
+  color: #1f1f1f;
+}
+
+.pioneer-classic .pioneer-classic-display {
+  background: #1a1a1a;
+  color: #f2f1ea;
+  text-align: center;
+  padding: 16px 20px;
+  margin: 0 auto;
+  width: 820px;
+  border-radius: 8px;
+  font-family: var(--font-condensed), sans-serif;
+  text-transform: uppercase;
+  position: absolute;
+  top: 500px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.pioneer-classic .pioneer-classic-display .freq {
+  font-size: 1.2rem;
+}
+
+.pioneer-classic .pioneer-classic-display .song {
+  font-size: 0.95rem;
+}
+
+.pioneer-classic .pioneer-classic-row {
+  position: absolute;
+  left: 180px;
+  right: 180px;
+  top: 740px;
+  display: grid;
+  grid-template-columns: 240px 150px 1fr 200px 200px;
+  gap: 26px;
+  align-items: start;
+}
+
+.pioneer-classic .control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-condensed), sans-serif;
+  text-transform: uppercase;
+  color: #3a3731;
+  font-size: 0.75rem;
+}
+
+.pioneer-classic .control .knob {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #f7f5ef 0%, #d5cdc0 55%, #9b9183 100%);
+  border: 1px solid #b2aa9e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease;
+}
+
+.pioneer-classic .control .knob.small {
+  width: 120px;
+  height: 120px;
+}
+
+.pioneer-classic .control .knob-indicator {
+  width: 12px;
+  height: 26px;
+  background: #c2b9aa;
+  border-radius: 4px;
+  position: absolute;
+  top: 12px;
+}
+
+.pioneer-classic .control .toggle {
+  width: 64px;
+  height: 52px;
+  border-radius: 6px;
+  background: #ece8dd;
+  border: 1px solid #b0a79a;
+}
+
+.pioneer-classic .selector-row {
+  display: grid;
+  grid-template-columns: repeat(6, 74px);
+  gap: 12px;
+}
+
+.pioneer-classic .selector-btn {
+  width: 74px;
+  height: 42px;
+  border-radius: 3px;
+  background: #f5f2ea;
+  border: 1px solid #a9a39a;
+}
+
+.pioneer-classic .selector-labels {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  width: 100%;
+  font-size: 0.65rem;
+  color: #4f4a42;
+}
+
+.pioneer-classic .pioneer-classic-actions {
+  position: absolute;
+  bottom: 60px;
+  right: 180px;
+  display: flex;
+  gap: 8px;
+}
+
+.pioneer-classic .action-btn {
+  background: #1c1c1c;
+  color: #f2f1ea;
+  border: 1px solid #2f2f2f;
+  font-size: 0.7rem;
+}
+
+.pioneer-classic .source-switch {
+  display: flex;
+  gap: 6px;
+}
+
+.pioneer-classic .source-switch button.active {
+  background: #d1b56b;
+  color: #1a1510;
+  border: none;
+}
+
 .receiver-top {
   display: flex;
   justify-content: space-between;
@@ -618,26 +882,12 @@ button.primary {
   overflow: hidden;
 }
 
-.vu-bar::after {
-  content: "";
+.vu-fill {
   position: absolute;
   inset: auto 0 0 0;
-  height: 20%;
+  height: 0%;
   background: linear-gradient(180deg, var(--gold-bright), var(--accent));
-  transition: height 0.2s ease;
-}
-
-.vu-bar.playing::after {
-  animation: vu 0.6s ease-in-out infinite alternate;
-}
-
-@keyframes vu {
-  0% {
-    height: 20%;
-  }
-  100% {
-    height: 90%;
-  }
+  transition: height 0.12s ease;
 }
 
 .receiver-bottom {

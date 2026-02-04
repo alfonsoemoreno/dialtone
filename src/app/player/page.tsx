@@ -1,25 +1,5 @@
-import { SkinHost } from "@/components/skins/SkinHost";
-import { RadioCatalog } from "@/components/radio/RadioCatalog";
-import { SpotifyBrowser } from "@/components/spotify/SpotifyBrowser";
-import Link from "next/link";
+import { PlayerUI } from "@/components/audius/PlayerUI";
 
 export default function PlayerPage() {
-  return (
-    <main className="player-page">
-      <header className="player-header">
-        <Link href="/" className="back-link">
-          ← Skins
-        </Link>
-        <h1>Vintage Player</h1>
-        <p>Custom UI, dual sources, and a vintage skin system.</p>
-      </header>
-      <div className="player-layout">
-        <SkinHost />
-        <div className="side-stack">
-          <RadioCatalog />
-          <SpotifyBrowser />
-        </div>
-      </div>
-    </main>
-  );
+  return <PlayerUI />;
 }
