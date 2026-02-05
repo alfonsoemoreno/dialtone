@@ -107,11 +107,9 @@ export class RadioProvider implements IProvider {
     }
     await this.ensureAnalyser();
     if (this.gainNode) {
-      this.gainNode.gain.value = this.state.volume;
-      this.audio.volume = 1;
-    } else {
-      this.audio.volume = this.state.volume;
+      this.gainNode.gain.value = 1;
     }
+    this.audio.volume = this.state.volume;
     await this.audio.play();
   }
 
@@ -131,8 +129,9 @@ export class RadioProvider implements IProvider {
   async setVolume(volume: number) {
     this.state.volume = volume;
     if (this.gainNode) {
-      this.gainNode.gain.value = volume;
-    } else if (this.audio) {
+      this.gainNode.gain.value = 1;
+    }
+    if (this.audio) {
       this.audio.volume = volume;
     }
     if (this.audioContext?.state === "suspended") {
@@ -219,7 +218,7 @@ export class RadioProvider implements IProvider {
       this.trebleFilter.frequency.value = 3000;
 
       this.gainNode = this.audioContext.createGain();
-      this.gainNode.gain.value = this.state.volume;
+      this.gainNode.gain.value = 1;
 
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 512;
@@ -232,7 +231,7 @@ export class RadioProvider implements IProvider {
 
       this.applyTone();
       if (this.audio) {
-        this.audio.volume = 1;
+        this.audio.volume = this.state.volume;
       }
 
       this.ensureMeyda(this.trebleFilter);

@@ -1,0 +1,22 @@
+{
+  "productName": "Dialtone",
+  "version": "0.1.0",
+  "identifier": "com.dialtone.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:3000",
+    "frontendDist": "../.next"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Dialtone",
+        "width": 1280,
+        "height": 720,
+        "resizable": true
+      }
+    ]
+  }
+}
