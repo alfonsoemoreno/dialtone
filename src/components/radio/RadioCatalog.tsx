@@ -53,6 +53,7 @@ export const RadioCatalog = () => {
           q: query.trim(),
           country: country.trim(),
           limit: "20",
+          cors: "1",
         });
         const res = await fetch(`/api/radios/search?${params.toString()}`, {
           signal: controller.signal,
@@ -112,9 +113,6 @@ export const RadioCatalog = () => {
           <div key={station.id} className="radio-item">
             <div>
               <div className="radio-name">{station.name}</div>
-              <div className="radio-meta">
-                {station.genre} · {station.country}
-              </div>
             </div>
             <div className="radio-actions">
               <button onClick={() => handleSelect(station)}>Tune</button>

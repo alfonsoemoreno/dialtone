@@ -9,6 +9,7 @@ import {
   Power,
   Radio as RadioIcon,
   Music,
+  Search,
 } from "lucide-react";
 import { VUMeter } from "@/components/audius/VUMeter";
 import { ControlKnob } from "@/components/audius/ControlKnob";
@@ -133,7 +134,7 @@ export const PlayerUI = () => {
 
   useEffect(() => {
     const fetchStations = async () => {
-      const params = new URLSearchParams({ country: "Chile", limit: "6" });
+      const params = new URLSearchParams({ country: "Chile", limit: "6", cors: "1" });
       const res = await fetch(`/api/radios/search?${params.toString()}`);
       const data = (await res.json()) as { stations: RadioBrowserStation[] };
       const mapped = (data.stations ?? []).map(mapRadioBrowserStation);
@@ -242,13 +243,25 @@ export const PlayerUI = () => {
     }
   };
 
+  const handleSourceKnobChange = (next: number) => {
+    if (!isPowerOn) return;
+    if (mode === "radio" && next > 5) {
+      handleMode("music").catch(() => undefined);
+    } else if (mode === "music" && next < 95) {
+      handleMode("radio").catch(() => undefined);
+    }
+  };
+
   const handleMode = async (next: "radio" | "music") => {
     setMode(next);
     await hub.setActive(next === "music" ? "spotify" : "radio");
-    if (next === "radio") {
+  };
+
+  const handleOpenSearch = () => {
+    if (!isPowerOn) return;
+    if (mode === "radio") {
       setRadioModalOpen(true);
-    }
-    if (next === "music") {
+    } else {
       setSpotifyModalOpen(true);
       setSpotifyView("search");
     }
@@ -262,6 +275,7 @@ export const PlayerUI = () => {
   const leftLevel = playerState.vuLevel ?? 0;
   const rightLevel = playerState.vuLevel ?? 0;
   const analyser = playerState.activeSource === "radio" ? radioAnalyser : null;
+  const sourceKnobValue = mode === "music" ? 100 : 0;
   const qualityLabel =
     mode === "radio"
       ? currentStation?.bitrate
@@ -370,13 +384,13 @@ export const PlayerUI = () => {
           bitrate: station.bitrate,
         }));
 
-      const params = new URLSearchParams({ q: query, country: "Chile", limit: "20" });
+      const params = new URLSearchParams({ q: query, country: "Chile", limit: "20", cors: "1" });
       const res = await fetch(`/api/radios/search?${params.toString()}`);
       const data = (await res.json()) as { stations: RadioBrowserStation[] };
       let list = makeList(data.stations ?? []);
 
       if (query && list.length === 0) {
-        const fallbackParams = new URLSearchParams({ q: query, limit: "20" });
+        const fallbackParams = new URLSearchParams({ q: query, limit: "20", cors: "1" });
         const fallbackRes = await fetch(`/api/radios/search?${fallbackParams.toString()}`);
         const fallbackData = (await fallbackRes.json()) as { stations: RadioBrowserStation[] };
         list = makeList(fallbackData.stations ?? []);
@@ -416,8 +430,8 @@ export const PlayerUI = () => {
           ></div>
 
           <div className="relative p-8 md:p-12 lg:p-16 xl:p-20">
-            <div className="flex items-center justify-between mb-12 lg:mb-16">
-              <div>
+            <div className="flex flex-col items-center text-center gap-6 mb-12 lg:mb-16 sm:flex-row sm:items-center sm:justify-between sm:text-left">
+              <div className="text-center sm:text-left">
                 <h1
                   className="text-xl md:text-2xl lg:text-3xl font-light tracking-[0.5em]"
                   style={{
@@ -439,61 +453,33 @@ export const PlayerUI = () => {
                 </p>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 text-xs tracking-[0.3em]" style={{ color: "#777" }}>
-                  <button
-                    onClick={() => handleMode("radio")}
-                    className={`px-3 py-2 rounded-full transition-all ${
-                      mode === "radio" ? "text-white" : "text-[#555]"
-                    }`}
-                    style={{ border: "1px solid rgba(255,255,255,0.08)" }}
-                  >
-                    <RadioIcon className="w-4 h-4" />
-                  </button>
-                <button
-                  onClick={() => handleMode("music")}
-                  className={`px-3 py-2 rounded-full transition-all ${
-                    mode === "music" ? "text-white" : "text-[#555]"
-                  }`}
-                  style={{ border: "1px solid rgba(255,255,255,0.08)" }}
-                >
-                  <Music className="w-4 h-4" />
-                </button>
-                </div>
-
-                <button
-                  onClick={handleTogglePower}
-                  className="relative group"
-                >
-                  <div
-                    className="w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all"
-                    style={{
-                      background: isPowerOn
-                        ? "radial-gradient(circle at center, rgba(255,255,255,0.05), rgba(255,255,255,0.01))"
-                        : "transparent",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      boxShadow: isPowerOn ? "0 0 20px rgba(255,255,255,0.1)" : "none",
-                    }}
-                  >
-                    <Power
-                      className="w-5 h-5 md:w-6 md:h-6"
-                      style={{
-                        color: isPowerOn ? "#fff" : "#333",
-                        filter: isPowerOn ? "drop-shadow(0 0 8px rgba(255,255,255,0.5))" : "none",
-                      }}
-                    />
-                  </div>
-                </button>
-
+              <div className="flex items-center justify-center gap-4 w-full sm:w-auto sm:justify-end">
                 <button
                   onClick={handleConnectSpotify}
-                  className="px-4 py-2 rounded-full text-xs tracking-[0.2em]"
+                  aria-label={spotifyConnected ? "Spotify connected" : "Connect Spotify"}
+                  className="relative p-3 rounded-full transition-all"
                   style={{
                     border: "1px solid rgba(255,255,255,0.1)",
-                    color: spotifyConnected ? "#fff" : "#666",
+                    background: "rgba(255,255,255,0.02)",
                   }}
                 >
-                  {spotifyConnected ? "SPOTIFY ON" : "CONNECT"}
+                  <svg
+                    viewBox="0 0 168 168"
+                    className="w-5 h-5"
+                    aria-hidden="true"
+                    style={{ fill: spotifyConnected ? "#1DB954" : "#777" }}
+                  >
+                    <path d="M84 0C37.6 0 0 37.6 0 84s37.6 84 84 84 84-37.6 84-84S130.4 0 84 0zm38.3 121.5c-1.6 2.6-4.9 3.4-7.5 1.8-20.6-12.6-46.6-15.5-77.2-8.6-3 .7-6-1.2-6.7-4.2-.7-3 1.2-6 4.2-6.7 33.5-7.5 62.2-4.2 85.5 10 2.6 1.6 3.4 4.9 1.7 7.7zm10.7-23.7c-2 3.2-6.2 4.1-9.4 2.1-23.6-14.5-59.5-18.7-87.3-10.4-3.6 1.1-7.4-1-8.4-4.6-1.1-3.6 1-7.4 4.6-8.4 31.8-9.6 71.3-5 98.7 11.8 3.2 2 4.1 6.2 2.2 9.5zm.9-24.7C108.6 58.1 62.5 57 37.6 64.6c-4.2 1.3-8.7-1.1-10-5.3-1.3-4.2 1.1-8.7 5.3-10 28.6-8.7 79-7.4 109.8 13.2 3.8 2.2 5.1 7.1 2.8 10.9-2.1 3.8-7 5-10.8 2.7z" />
+                  </svg>
+                  <span
+                    className="absolute -right-0.5 -top-0.5 w-2.5 h-2.5 rounded-full"
+                    style={{
+                      background: spotifyConnected ? "#1DB954" : "#f4c94f",
+                      boxShadow: spotifyConnected
+                        ? "0 0 6px rgba(29,185,84,0.8)"
+                        : "0 0 6px rgba(244,201,79,0.8)",
+                    }}
+                  ></span>
                 </button>
               </div>
             </div>
@@ -507,16 +493,54 @@ export const PlayerUI = () => {
               }}
             >
               <div className="relative px-8 py-12 md:px-16 md:py-16 lg:px-20 lg:py-20">
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{
-                    background: "linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 40%)",
-                  }}
-                ></div>
-
-                <div className="grid grid-cols-2 gap-16 lg:gap-24 mb-16 lg:mb-20 max-w-4xl mx-auto">
-                  <VUMeter level={leftLevel} channel="L" isPlaying={isPlaying && isPowerOn} />
-                  <VUMeter level={rightLevel} channel="R" isPlaying={isPlaying && isPowerOn} />
+                <div className="max-w-6xl mx-auto mb-16 lg:mb-20">
+                  <div className="flex flex-col items-center justify-center gap-8 md:gap-10 lg:flex-row lg:items-center">
+                    <ControlKnob
+                      value={sourceKnobValue}
+                      onChange={handleSourceKnobChange}
+                      label="SOURCE"
+                      valueLabel={mode === "music" ? "SPOTIFY" : "RADIO"}
+                      onClick={() => handleMode(mode === "music" ? "radio" : "music")}
+                      disabled={!isPowerOn}
+                    />
+                    <ControlKnob
+                      value={bass}
+                      onChange={handleBassChange}
+                      label="BASS"
+                      disabled={!isPowerOn}
+                    />
+                    <ControlKnob
+                      value={treble}
+                      onChange={handleTrebleChange}
+                      label="TREBLE"
+                      disabled={!isPowerOn}
+                    />
+                    <div className="w-48 md:w-56 flex items-center justify-center lg:ml-6">
+                      <VUMeter
+                        level={leftLevel}
+                        channel="L"
+                        isPlaying={isPlaying && isPowerOn}
+                        isPowered={isPowerOn}
+                      />
+                    </div>
+                    <div className="w-48 md:w-56 flex items-center justify-center">
+                      <VUMeter
+                        level={rightLevel}
+                        channel="R"
+                        isPlaying={isPlaying && isPowerOn}
+                        isPowered={isPowerOn}
+                      />
+                    </div>
+                    <div className="lg:pl-6">
+                      <ControlKnob
+                        value={volume}
+                        onChange={handleVolumeChange}
+                        label="VOLUME"
+                        disabled={!isPowerOn}
+                        size="xl"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div
@@ -547,17 +571,17 @@ export const PlayerUI = () => {
                         ? playerState.title ?? "Spotify"
                         : selectedStation?.name ?? "Station"}
                     </h2>
-                    <p
-                      className="text-base md:text-lg lg:text-xl tracking-wider"
-                      style={{
-                        color: "#999",
-                        fontWeight: 300,
-                      }}
-                    >
-                      {mode === "music"
-                        ? playerState.artist ?? ""
-                        : selectedStation?.genre ?? ""}
-                    </p>
+                    {mode === "music" && playerState.artist ? (
+                      <p
+                        className="text-base md:text-lg lg:text-xl tracking-wider"
+                        style={{
+                          color: "#999",
+                          fontWeight: 300,
+                        }}
+                      >
+                        {playerState.artist}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div
@@ -575,85 +599,91 @@ export const PlayerUI = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-center gap-6 md:gap-8">
-                  <button
-                    onClick={handlePrevious}
-                    disabled={!isPowerOn}
-                    className="p-3 rounded-full transition-all disabled:opacity-20"
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      background: "rgba(255,255,255,0.02)",
-                    }}
-                  >
-                    <SkipBack className="w-5 h-5" style={{ color: "#fff" }} />
-                  </button>
+                <div className="flex flex-col items-center justify-center gap-4 md:flex-row md:flex-wrap md:gap-8">
+                  <div className="flex items-center justify-center gap-6 md:contents">
+                    <button
+                      onClick={handlePrevious}
+                      disabled={!isPowerOn}
+                      className="p-3 rounded-full transition-all disabled:opacity-20"
+                      style={{
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        background: "rgba(255,255,255,0.02)",
+                      }}
+                    >
+                      <SkipBack className="w-5 h-5" style={{ color: "#fff" }} />
+                    </button>
 
-                  <button
-                    onClick={handlePlayPause}
-                    disabled={!isPowerOn}
-                    className="p-5 rounded-full transition-all disabled:opacity-20"
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.15)",
-                      background: isPowerOn && isPlaying
-                        ? "rgba(255,255,255,0.08)"
-                        : "rgba(255,255,255,0.02)",
-                      boxShadow: isPowerOn && isPlaying
-                        ? "0 0 30px rgba(255,255,255,0.1)"
-                        : "none",
-                    }}
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-7 h-7" style={{ color: "#fff" }} />
-                    ) : (
-                      <Play className="w-7 h-7 ml-1" style={{ color: "#fff" }} />
-                    )}
-                  </button>
+                    <button
+                      onClick={handlePlayPause}
+                      disabled={!isPowerOn}
+                      className="p-5 rounded-full transition-all disabled:opacity-20"
+                      style={{
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        background: isPowerOn && isPlaying
+                          ? "rgba(255,255,255,0.08)"
+                          : "rgba(255,255,255,0.02)",
+                        boxShadow: isPowerOn && isPlaying
+                          ? "0 0 30px rgba(255,255,255,0.1)"
+                          : "none",
+                      }}
+                    >
+                      {isPlaying ? (
+                        <Pause className="w-7 h-7" style={{ color: "#fff" }} />
+                      ) : (
+                        <Play className="w-7 h-7 ml-1" style={{ color: "#fff" }} />
+                      )}
+                    </button>
 
-                  <button
-                    onClick={handleNext}
-                    disabled={!isPowerOn}
-                    className="p-3 rounded-full transition-all disabled:opacity-20"
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      background: "rgba(255,255,255,0.02)",
-                    }}
-                  >
-                    <SkipForward className="w-5 h-5" style={{ color: "#fff" }} />
-                  </button>
+                    <button
+                      onClick={handleNext}
+                      disabled={!isPowerOn}
+                      className="p-3 rounded-full transition-all disabled:opacity-20"
+                      style={{
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        background: "rgba(255,255,255,0.02)",
+                      }}
+                    >
+                      <SkipForward className="w-5 h-5" style={{ color: "#fff" }} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-6 md:contents">
+                    <button
+                      onClick={handleTogglePower}
+                      className="w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all disabled:opacity-20"
+                      style={{
+                        background: isPowerOn
+                          ? "radial-gradient(circle at center, rgba(255,255,255,0.05), rgba(255,255,255,0.01))"
+                          : "transparent",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        boxShadow: isPowerOn ? "0 0 20px rgba(255,255,255,0.1)" : "none",
+                      }}
+                    >
+                      <Power
+                        className="w-5 h-5 md:w-6 md:h-6"
+                        style={{
+                          color: isPowerOn ? "#fff" : "#333",
+                          filter: isPowerOn ? "drop-shadow(0 0 8px rgba(255,255,255,0.5))" : "none",
+                        }}
+                      />
+                    </button>
+
+                    <button
+                      onClick={handleOpenSearch}
+                      disabled={!isPowerOn}
+                      className="p-3 rounded-full transition-all disabled:opacity-20"
+                      style={{
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        background: "rgba(255,255,255,0.02)",
+                      }}
+                    >
+                      <Search className="w-5 h-5" style={{ color: "#fff" }} />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-              <div className="lg:col-span-4 flex flex-col justify-center items-start">
-                <ControlKnob
-                  value={volume}
-                  onChange={handleVolumeChange}
-                  label="VOLUME"
-                  disabled={!isPowerOn}
-                  size="lg"
-                />
-              </div>
-
-              <div className="lg:col-span-5 flex items-center justify-center">
-                <button
-                  onClick={() => setRadioModalOpen(true)}
-                  className="px-6 py-3 rounded-full text-xs tracking-[0.3em]"
-                  style={{
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    color: "#bbb",
-                    background: "rgba(255,255,255,0.02)",
-                  }}
-                >
-                  SEARCH RADIO
-                </button>
-              </div>
-
-              <div className="lg:col-span-3 flex flex-row lg:flex-col justify-center items-center gap-10">
-                <ControlKnob value={bass} onChange={handleBassChange} label="BASS" disabled={!isPowerOn} />
-                <ControlKnob value={treble} onChange={handleTrebleChange} label="TREBLE" disabled={!isPowerOn} />
-              </div>
-            </div>
           </div>
 
           <div

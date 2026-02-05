@@ -5,7 +5,10 @@ interface ControlKnobProps {
   onChange: (value: number) => void;
   label: string;
   disabled?: boolean;
-  size?: "md" | "lg";
+  size?: "md" | "lg" | "xl";
+  valueLabel?: string;
+  showValue?: boolean;
+  onClick?: () => void;
 }
 
 export function ControlKnob({
@@ -14,46 +17,103 @@ export function ControlKnob({
   label,
   disabled = false,
   size = "md",
+  valueLabel,
+  showValue = true,
+  onClick,
 }: ControlKnobProps) {
   const [isDragging, setIsDragging] = useState(false);
   const startYRef = useRef(0);
   const startValueRef = useRef(0);
+  const movedRef = useRef(false);
+  const activeInputRef = useRef<"pointer" | "touch" | null>(null);
+  const draggingRef = useRef(false);
 
-  const outerSize = size === "lg" ? "w-28 h-28 md:w-32 md:h-32" : "w-16 h-16 md:w-20 md:h-20";
-  const innerSize = size === "lg" ? "w-24 h-24 md:w-28 md:h-28" : "w-14 h-14 md:w-18 md:h-18";
+  const outerSize =
+    size === "xl"
+      ? "w-36 h-36 md:w-44 md:h-44"
+      : size === "lg"
+        ? "w-28 h-28 md:w-32 md:h-32"
+        : "w-16 h-16 md:w-20 md:h-20";
+  const innerSize =
+    size === "xl"
+      ? "w-32 h-32 md:w-40 md:h-40"
+      : size === "lg"
+        ? "w-24 h-24 md:w-28 md:h-28"
+        : "w-14 h-14 md:w-18 md:h-18";
 
   const rotation = (value / 100) * 270 - 135;
 
+  const startDrag = (clientY: number, input: "pointer" | "touch") => {
+    activeInputRef.current = input;
+    draggingRef.current = true;
+    setIsDragging(true);
+    startYRef.current = clientY;
+    startValueRef.current = value;
+    movedRef.current = false;
+  };
+
   const handlePointerDown = (e: React.PointerEvent) => {
     if (disabled) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setIsDragging(true);
-    startYRef.current = e.clientY;
-    startValueRef.current = value;
+    if (e.currentTarget.setPointerCapture) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+    startDrag(e.clientY, "pointer");
     e.preventDefault();
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (disabled) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    startDrag(touch.clientY, "touch");
+    if (e.cancelable) e.preventDefault();
   };
 
   useEffect(() => {
     const handleMove = (clientY: number) => {
-      if (!isDragging) return;
+      if (!draggingRef.current) return;
       const deltaY = startYRef.current - clientY;
+      if (Math.abs(deltaY) > 3) {
+        movedRef.current = true;
+      }
       const newValue = Math.max(0, Math.min(100, startValueRef.current + deltaY * 0.5));
       onChange(Math.round(newValue));
     };
 
-    const handlePointerMove = (e: PointerEvent) => handleMove(e.clientY);
-    const handleEnd = () => setIsDragging(false);
+    const handlePointerMove = (e: PointerEvent) => {
+      if (activeInputRef.current !== "pointer") return;
+      handleMove(e.clientY);
+    };
+    const handleTouchMove = (e: TouchEvent) => {
+      if (activeInputRef.current !== "touch") return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      handleMove(touch.clientY);
+      if (e.cancelable) e.preventDefault();
+    };
+    const handleEnd = () => {
+      if (!disabled && onClick && !movedRef.current) {
+        onClick();
+      }
+      activeInputRef.current = null;
+      draggingRef.current = false;
+      setIsDragging(false);
+    };
 
-    if (isDragging) {
-      document.addEventListener('pointermove', handlePointerMove);
-      document.addEventListener('pointerup', handleEnd);
-    }
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handleEnd);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleEnd);
+    document.addEventListener('touchcancel', handleEnd);
 
     return () => {
       document.removeEventListener('pointermove', handlePointerMove);
       document.removeEventListener('pointerup', handleEnd);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleEnd);
+      document.removeEventListener('touchcancel', handleEnd);
     };
-  }, [isDragging, onChange]);
+  }, [onChange, onClick, disabled]);
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -62,10 +122,13 @@ export function ControlKnob({
       <div
         className={`relative ${outerSize} rounded-full flex items-center justify-center`}
         onPointerDown={handlePointerDown}
+        onTouchStart={handleTouchStart}
         style={{
           background: 'rgba(255,255,255,0.02)',
           border: '1px solid rgba(255,255,255,0.08)',
           touchAction: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
           cursor: disabled ? 'not-allowed' : 'grab',
         }}
       >
@@ -123,11 +186,16 @@ export function ControlKnob({
         }}>
           {label}
         </div>
-        <div className="text-[10px] font-mono" style={{
-          color: '#999',
-        }}>
-          {value > 50 ? `+${value - 50}` : value < 50 ? `-${50 - value}` : '0'}
-        </div>
+        {showValue ? (
+          <div
+            className="text-[10px] font-mono"
+            style={{
+              color: '#999',
+            }}
+          >
+            {valueLabel ?? (value > 50 ? `+${value - 50}` : value < 50 ? `-${50 - value}` : '0')}
+          </div>
+        ) : null}
       </div>
     </div>
   );
