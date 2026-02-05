@@ -42,10 +42,12 @@ export class RadioProvider implements IProvider {
   private meydaActive = false;
   private meterState = { avgDb: null as number | null, current: 0 };
   private toneState = { bass: 50, treble: 50 };
+  private usingGraph = false;
 
   constructor() {
     if (typeof window !== "undefined") {
       this.audio = createAudio();
+      this.audio.muted = false;
       this.bindEvents();
     }
   }
@@ -109,8 +111,12 @@ export class RadioProvider implements IProvider {
     if (this.gainNode) {
       this.gainNode.gain.value = this.state.volume;
       this.audio.volume = 1;
+      this.audio.muted = true;
+      this.usingGraph = true;
     } else {
       this.audio.volume = this.state.volume;
+      this.audio.muted = false;
+      this.usingGraph = false;
     }
     await this.audio.play();
   }
@@ -132,8 +138,17 @@ export class RadioProvider implements IProvider {
     this.state.volume = volume;
     if (this.gainNode) {
       this.gainNode.gain.value = volume;
+      if (this.audio) {
+        this.audio.muted = true;
+      }
+      this.usingGraph = true;
     } else if (this.audio) {
       this.audio.volume = volume;
+      this.audio.muted = false;
+      this.usingGraph = false;
+    }
+    if (this.audioContext?.state === "suspended") {
+      this.audioContext.resume().catch(() => undefined);
     }
     this.setState({ volume });
   }
@@ -146,6 +161,9 @@ export class RadioProvider implements IProvider {
     }
     if (this.trebleFilter) {
       this.trebleFilter.gain.value = mapGain(treble);
+    }
+    if (this.audioContext?.state === "suspended") {
+      this.audioContext.resume().catch(() => undefined);
     }
   }
 
@@ -188,8 +206,10 @@ export class RadioProvider implements IProvider {
     this.meydaAnalyzer = null;
     this.meydaActive = false;
     this.meterState = { avgDb: null, current: 0 };
+    this.usingGraph = false;
     if (typeof window !== "undefined") {
       this.audio = createAudio();
+      this.audio.muted = false;
       this.audio.volume = this.state.volume;
       this.bindEvents();
     } else {
@@ -227,7 +247,9 @@ export class RadioProvider implements IProvider {
       this.applyTone();
       if (this.audio) {
         this.audio.volume = 1;
+        this.audio.muted = true;
       }
+      this.usingGraph = true;
 
       this.ensureMeyda(this.trebleFilter);
     }
