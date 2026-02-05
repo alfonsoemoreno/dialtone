@@ -106,7 +106,12 @@ export class RadioProvider implements IProvider {
       return;
     }
     await this.ensureAnalyser();
-    this.audio.volume = this.state.volume;
+    if (this.gainNode) {
+      this.gainNode.gain.value = this.state.volume;
+      this.audio.volume = 1;
+    } else {
+      this.audio.volume = this.state.volume;
+    }
     await this.audio.play();
   }
 

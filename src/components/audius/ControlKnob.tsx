@@ -27,6 +27,23 @@ export function ControlKnob({
   const movedRef = useRef(false);
   const activeInputRef = useRef<"pointer" | "touch" | null>(null);
   const draggingRef = useRef(false);
+  const bodyOverflowRef = useRef<string | null>(null);
+
+  const lockScroll = () => {
+    if (typeof document === "undefined") return;
+    if (bodyOverflowRef.current === null) {
+      bodyOverflowRef.current = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    }
+  };
+
+  const unlockScroll = () => {
+    if (typeof document === "undefined") return;
+    if (bodyOverflowRef.current !== null) {
+      document.body.style.overflow = bodyOverflowRef.current;
+      bodyOverflowRef.current = null;
+    }
+  };
 
   const outerSize =
     size === "xl"
@@ -44,16 +61,21 @@ export function ControlKnob({
   const rotation = (value / 100) * 270 - 135;
 
   const startDrag = (clientY: number, input: "pointer" | "touch") => {
+    if (draggingRef.current) return;
     activeInputRef.current = input;
     draggingRef.current = true;
     setIsDragging(true);
     startYRef.current = clientY;
     startValueRef.current = value;
     movedRef.current = false;
+    if (input === "touch") {
+      lockScroll();
+    }
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (disabled) return;
+    e.stopPropagation();
     if (e.currentTarget.setPointerCapture) {
       e.currentTarget.setPointerCapture(e.pointerId);
     }
@@ -65,11 +87,13 @@ export function ControlKnob({
     if (disabled) return;
     const touch = e.touches[0];
     if (!touch) return;
+    e.stopPropagation();
     startDrag(touch.clientY, "touch");
     if (e.cancelable) e.preventDefault();
   };
 
   useEffect(() => {
+    if (!isDragging) return;
     const handleMove = (clientY: number) => {
       if (!draggingRef.current) return;
       const deltaY = startYRef.current - clientY;
@@ -82,6 +106,7 @@ export function ControlKnob({
 
     const handlePointerMove = (e: PointerEvent) => {
       if (activeInputRef.current !== "pointer") return;
+      if (e.cancelable) e.preventDefault();
       handleMove(e.clientY);
     };
     const handleTouchMove = (e: TouchEvent) => {
@@ -91,29 +116,41 @@ export function ControlKnob({
       handleMove(touch.clientY);
       if (e.cancelable) e.preventDefault();
     };
-    const handleEnd = () => {
+    const endDrag = () => {
       if (!disabled && onClick && !movedRef.current) {
         onClick();
       }
       activeInputRef.current = null;
       draggingRef.current = false;
       setIsDragging(false);
+      unlockScroll();
+    };
+    const handlePointerEnd = (e: PointerEvent) => {
+      if (activeInputRef.current !== "pointer") return;
+      if (movedRef.current && e.cancelable) e.preventDefault();
+      endDrag();
+    };
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (activeInputRef.current !== "touch") return;
+      if (movedRef.current && e.cancelable) e.preventDefault();
+      endDrag();
     };
 
     document.addEventListener('pointermove', handlePointerMove);
-    document.addEventListener('pointerup', handleEnd);
+    document.addEventListener('pointerup', handlePointerEnd);
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('touchend', handleEnd);
-    document.addEventListener('touchcancel', handleEnd);
+    document.addEventListener('touchend', handleTouchEnd);
+    document.addEventListener('touchcancel', handleTouchEnd);
 
     return () => {
       document.removeEventListener('pointermove', handlePointerMove);
-      document.removeEventListener('pointerup', handleEnd);
+      document.removeEventListener('pointerup', handlePointerEnd);
       document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleEnd);
-      document.removeEventListener('touchcancel', handleEnd);
+      document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchcancel', handleTouchEnd);
+      unlockScroll();
     };
-  }, [onChange, onClick, disabled]);
+  }, [isDragging, onChange, onClick, disabled]);
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -129,6 +166,7 @@ export function ControlKnob({
           touchAction: 'none',
           userSelect: 'none',
           WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
           cursor: disabled ? 'not-allowed' : 'grab',
         }}
       >
