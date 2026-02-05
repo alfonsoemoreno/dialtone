@@ -50,6 +50,7 @@ export class SpotifyProvider implements IProvider {
   };
   private listeners = new Set<ProviderStateListener>();
   private accessToken: string | null = null;
+  private vuInterval: number | null = null;
 
   async ensurePlayer() {
     if (this.player) return;
@@ -62,7 +63,7 @@ export class SpotifyProvider implements IProvider {
     }
 
     this.player = new window.Spotify.Player({
-      name: "Vintage Receiver",
+      name: "HIICHO",
       getOAuthToken: (cb) => {
         if (this.accessToken) cb(this.accessToken);
       },
@@ -78,10 +79,18 @@ export class SpotifyProvider implements IProvider {
     this.player.addListener("player_state_changed", (state: DeviceState | null) => {
       if (!state) return;
       const track = state.track_window.current_track;
+      if (state.paused) {
+        this.stopVu();
+      } else {
+        this.startVu();
+      }
       this.setState({
         status: state.paused ? "paused" : "playing",
         title: track?.name,
         artist: track?.artists?.map((a) => a.name).join(", "),
+        album: (track as Spotify.PlaybackState["track_window"]["current_track"] & {
+          album?: { name: string };
+        })?.album?.name,
       });
     });
 
@@ -106,11 +115,13 @@ export class SpotifyProvider implements IProvider {
 
   async pause() {
     await this.player?.pause();
+    this.stopVu();
   }
 
   async stop() {
     await this.player?.pause();
     this.setState({ status: "stopped" });
+    this.stopVu();
   }
 
   async setVolume(volume: number) {
@@ -155,5 +166,22 @@ export class SpotifyProvider implements IProvider {
     } catch {
       // Ignore transfer failures; user can manually select device in Spotify.
     }
+  }
+
+  private startVu() {
+    if (this.vuInterval) return;
+    this.vuInterval = window.setInterval(() => {
+      // Spotify audio isn't accessible; simulate responsive VU when playing
+      const level = 0.2 + Math.random() * 0.6;
+      this.setState({ vuLevel: level });
+    }, 120);
+  }
+
+  private stopVu() {
+    if (this.vuInterval) {
+      window.clearInterval(this.vuInterval);
+      this.vuInterval = null;
+    }
+    this.setState({ vuLevel: 0 });
   }
 }

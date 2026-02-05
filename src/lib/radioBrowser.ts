@@ -5,6 +5,7 @@ export type RadioBrowserStation = {
   country: string;
   tags: string;
   favicon: string | null;
+  bitrate?: number;
 };
 
 const DEFAULT_BASE = "https://de1.api.radio-browser.info";
@@ -19,4 +20,5 @@ export const mapRadioBrowserStation = (station: RadioBrowserStation) => ({
   country: station.country || "Unknown",
   genre: station.tags || "Unknown",
   favicon: station.favicon || undefined,
+  bitrate: station.bitrate ?? undefined,
 });

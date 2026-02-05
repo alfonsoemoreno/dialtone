@@ -12,8 +12,6 @@ import {
 } from "lucide-react";
 import { VUMeter } from "@/components/audius/VUMeter";
 import { ControlKnob } from "@/components/audius/ControlKnob";
-import { StationList } from "@/components/audius/StationList";
-import { Visualizer } from "@/components/audius/Visualizer";
 import { getPlayerHub } from "@/lib/player/PlayerHub";
 import { RadioProvider } from "@/lib/player/providers/radio";
 import { SpotifyProvider } from "@/lib/player/providers/spotify";
@@ -28,6 +26,7 @@ interface Station {
   genre: string;
   frequency: string;
   streamUrl: string;
+  bitrate?: number;
 }
 
 const defaultState: PlayerState = {
@@ -51,6 +50,29 @@ export const PlayerUI = () => {
   const [mode, setMode] = useState<"radio" | "music">("radio");
   const [spotifyConnected, setSpotifyConnected] = useState(false);
   const [radioAnalyser, setRadioAnalyser] = useState<AnalyserNode | null>(null);
+  const [radioModalOpen, setRadioModalOpen] = useState(false);
+  const [radioQuery, setRadioQuery] = useState("");
+  const [radioResults, setRadioResults] = useState<Station[]>([]);
+  const [radioLoading, setRadioLoading] = useState(false);
+  const [spotifyModalOpen, setSpotifyModalOpen] = useState(false);
+  const [spotifyQuery, setSpotifyQuery] = useState("");
+  const [spotifyLoading, setSpotifyLoading] = useState(false);
+  const [spotifyView, setSpotifyView] = useState<"search" | "playlist" | "album">("search");
+  const [spotifyDetailTitle, setSpotifyDetailTitle] = useState("");
+  const [spotifyDetailUri, setSpotifyDetailUri] = useState<string | null>(null);
+  const [spotifyDeviceId, setSpotifyDeviceId] = useState<string | null>(null);
+  const [spotifyTracks, setSpotifyTracks] = useState<
+    { id: string; name: string; artists: string; uri: string }[]
+  >([]);
+  const [spotifyPlaylists, setSpotifyPlaylists] = useState<
+    { id: string; name: string; owner: string; uri: string }[]
+  >([]);
+  const [spotifyAlbums, setSpotifyAlbums] = useState<
+    { id: string; name: string; artists: string; uri: string }[]
+  >([]);
+  const [spotifyDetailTracks, setSpotifyDetailTracks] = useState<
+    { id: string; name: string; artists: string; uri: string }[]
+  >([]);
 
   useEffect(() => {
     if (initialized.current) return;
@@ -84,17 +106,44 @@ export const PlayerUI = () => {
   }, []);
 
   useEffect(() => {
+    const interval = setInterval(() => {
+      const provider = hub.getProvider("spotify") as SpotifyProvider | undefined;
+      const deviceId = provider?.getDeviceId() ?? null;
+      setSpotifyDeviceId((prev) => (prev === deviceId ? prev : deviceId));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [hub]);
+
+  const ensureSpotifyDevice = async () => {
+    const provider = hub.getProvider("spotify") as SpotifyProvider | undefined;
+    if (provider) {
+      await provider.ensurePlayer();
+    }
+    const start = Date.now();
+    while (Date.now() - start < 5000) {
+      const id = provider?.getDeviceId() ?? null;
+      if (id) {
+        setSpotifyDeviceId(id);
+        return id;
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    return null;
+  };
+
+  useEffect(() => {
     const fetchStations = async () => {
       const params = new URLSearchParams({ country: "Chile", limit: "6" });
       const res = await fetch(`/api/radios/search?${params.toString()}`);
       const data = (await res.json()) as { stations: RadioBrowserStation[] };
       const mapped = (data.stations ?? []).map(mapRadioBrowserStation);
-      const nextStations = mapped.slice(0, 6).map((station, idx) => ({
+      const nextStations = mapped.slice(0, 6).map((station) => ({
         id: station.id,
         name: station.name,
         genre: station.genre,
-        frequency: (88 + idx * 2.1).toFixed(1),
+        frequency: "",
         streamUrl: station.streamUrl,
+        bitrate: station.bitrate,
       }));
       setStations(nextStations);
       if (!selectedStation && nextStations.length > 0) {
@@ -167,6 +216,7 @@ export const PlayerUI = () => {
     if (isReady) {
       await hub.play();
     }
+    setRadioModalOpen(false);
   };
 
   const handleVolumeChange = async (next: number) => {
@@ -195,17 +245,150 @@ export const PlayerUI = () => {
   const handleMode = async (next: "radio" | "music") => {
     setMode(next);
     await hub.setActive(next === "music" ? "spotify" : "radio");
+    if (next === "radio") {
+      setRadioModalOpen(true);
+    }
+    if (next === "music") {
+      setSpotifyModalOpen(true);
+      setSpotifyView("search");
+    }
   };
 
   const handleConnectSpotify = () => {
     window.location.href = "/api/auth/spotify/login";
   };
 
+  const currentStation = selectedStation ?? stations[0];
   const leftLevel = playerState.vuLevel ?? 0;
   const rightLevel = playerState.vuLevel ?? 0;
   const analyser = playerState.activeSource === "radio" ? radioAnalyser : null;
+  const qualityLabel =
+    mode === "radio"
+      ? currentStation?.bitrate
+        ? `${currentStation.bitrate} kbps`
+        : "Quality: unknown"
+      : playerState.album
+        ? `Album: ${playerState.album}`
+        : "Album: unknown";
 
-  const currentStation = selectedStation ?? stations[0];
+  useEffect(() => {
+    if (!radioModalOpen) return;
+    const timeout = window.setTimeout(() => {
+      if (radioQuery.trim().length > 1) searchRadios();
+    }, 400);
+    return () => window.clearTimeout(timeout);
+  }, [radioQuery, radioModalOpen]);
+
+  const searchSpotify = async () => {
+    setSpotifyLoading(true);
+    try {
+      const query = spotifyQuery.trim();
+      const params = new URLSearchParams({ q: query, limit: "10" });
+      const res = await fetch(`/api/spotify/search?${params.toString()}`);
+      const data = (await res.json()) as {
+        tracks: { id: string; name: string; uri: string; artists: string }[];
+        playlists: { id: string; name: string; uri: string; owner: string }[];
+        albums: { id: string; name: string; uri: string; artists: string }[];
+      };
+
+      let tracks = data.tracks ?? [];
+      let playlists = data.playlists ?? [];
+      let albums = data.albums ?? [];
+
+      // Fallback: if nothing found, search as artist or track terms
+      if (query && tracks.length === 0 && playlists.length === 0 && albums.length === 0) {
+        const fallbackParams = new URLSearchParams({
+          q: `artist:${query} OR track:${query}`,
+          limit: "10",
+        });
+        const fallbackRes = await fetch(`/api/spotify/search?${fallbackParams.toString()}`);
+        const fallbackData = (await fallbackRes.json()) as {
+          tracks: { id: string; name: string; uri: string; artists: string }[];
+          playlists: { id: string; name: string; uri: string; owner: string }[];
+          albums: { id: string; name: string; uri: string; artists: string }[];
+        };
+        tracks = fallbackData.tracks ?? [];
+        playlists = fallbackData.playlists ?? [];
+        albums = fallbackData.albums ?? [];
+      }
+
+      setSpotifyTracks(tracks);
+      setSpotifyPlaylists(playlists);
+      setSpotifyAlbums(albums);
+    } catch {
+      setSpotifyTracks([]);
+      setSpotifyPlaylists([]);
+      setSpotifyAlbums([]);
+    } finally {
+      setSpotifyLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!spotifyModalOpen) return;
+    const timeout = window.setTimeout(() => {
+      if (spotifyQuery.trim().length > 1) searchSpotify();
+    }, 400);
+    return () => window.clearTimeout(timeout);
+  }, [spotifyQuery, spotifyModalOpen]);
+
+  const openPlaylistDetail = async (id: string, name: string, uri: string) => {
+    setSpotifyView("playlist");
+    setSpotifyDetailTitle(name);
+    setSpotifyDetailUri(uri);
+    setSpotifyDetailTracks([]);
+    const res = await fetch(`/api/spotify/playlist/${id}`);
+    const data = (await res.json()) as {
+      tracks: { id: string; name: string; artists: string; uri: string }[];
+    };
+    setSpotifyDetailTracks(data.tracks ?? []);
+  };
+
+  const openAlbumDetail = async (id: string, name: string, uri: string) => {
+    setSpotifyView("album");
+    setSpotifyDetailTitle(name);
+    setSpotifyDetailUri(uri);
+    setSpotifyDetailTracks([]);
+    const res = await fetch(`/api/spotify/album/${id}`);
+    const data = (await res.json()) as {
+      tracks: { id: string; name: string; artists: string; uri: string }[];
+    };
+    setSpotifyDetailTracks(data.tracks ?? []);
+  };
+
+  const searchRadios = async () => {
+    setRadioLoading(true);
+    try {
+      const query = radioQuery.trim();
+      const makeList = (stations: RadioBrowserStation[]) =>
+        stations.map(mapRadioBrowserStation).map((station) => ({
+          id: station.id,
+          name: station.name,
+          genre: station.genre,
+          frequency: "",
+          streamUrl: station.streamUrl,
+          bitrate: station.bitrate,
+        }));
+
+      const params = new URLSearchParams({ q: query, country: "Chile", limit: "20" });
+      const res = await fetch(`/api/radios/search?${params.toString()}`);
+      const data = (await res.json()) as { stations: RadioBrowserStation[] };
+      let list = makeList(data.stations ?? []);
+
+      if (query && list.length === 0) {
+        const fallbackParams = new URLSearchParams({ q: query, limit: "20" });
+        const fallbackRes = await fetch(`/api/radios/search?${fallbackParams.toString()}`);
+        const fallbackData = (await fallbackRes.json()) as { stations: RadioBrowserStation[] };
+        list = makeList(fallbackData.stations ?? []);
+      }
+
+      setRadioResults(list);
+    } catch {
+      setRadioResults([]);
+    } finally {
+      setRadioLoading(false);
+    }
+  };
 
   return (
     <div
@@ -243,7 +426,7 @@ export const PlayerUI = () => {
                     fontFamily: "system-ui, -apple-system, sans-serif",
                   }}
                 >
-                  AUDIUS
+                  HIICHO
                 </h1>
                 <p
                   className="text-[9px] md:text-[10px] tracking-[0.3em] mt-1"
@@ -267,15 +450,15 @@ export const PlayerUI = () => {
                   >
                     <RadioIcon className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => handleMode("music")}
-                    className={`px-3 py-2 rounded-full transition-all ${
-                      mode === "music" ? "text-white" : "text-[#555]"
-                    }`}
-                    style={{ border: "1px solid rgba(255,255,255,0.08)" }}
-                  >
-                    <Music className="w-4 h-4" />
-                  </button>
+                <button
+                  onClick={() => handleMode("music")}
+                  className={`px-3 py-2 rounded-full transition-all ${
+                    mode === "music" ? "text-white" : "text-[#555]"
+                  }`}
+                  style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+                >
+                  <Music className="w-4 h-4" />
+                </button>
                 </div>
 
                 <button
@@ -377,39 +560,19 @@ export const PlayerUI = () => {
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-center gap-8 mb-8">
-                    <div
-                      className="font-light tracking-[0.2em]"
-                      style={{
-                        fontSize: "3rem",
-                        color: "#fff",
-                        fontFamily: "system-ui, -apple-system, sans-serif",
-                      }}
-                    >
-                      {mode === "music"
-                        ? "SPOTIFY"
-                        : selectedStation?.frequency ?? "--"}
-                      <span className="text-xl ml-2" style={{ color: "#666" }}>
-                        MHz
-                      </span>
-                    </div>
-                  </div>
-
                   <div
-                    className="flex items-center justify-center gap-8 text-xs tracking-[0.3em]"
+                    className="flex items-center justify-center gap-3 text-xs tracking-[0.2em]"
                     style={{
                       color: "#666",
                       fontWeight: 300,
                     }}
                   >
-                    <span className={mode === "radio" ? "text-white" : ""}>FM STEREO</span>
+                    <span className={mode === "radio" ? "text-white" : ""}>
+                      {mode === "radio" ? "RADIO" : "SPOTIFY"}
+                    </span>
                     <span>•</span>
-                    <span>96kHz / 24bit</span>
+                    <span>{qualityLabel}</span>
                   </div>
-                </div>
-
-                <div className="mb-12 max-w-4xl mx-auto">
-                  <Visualizer isPlaying={isPlaying && isPowerOn} analyser={analyser} />
                 </div>
 
                 <div className="flex items-center justify-center gap-6 md:gap-8">
@@ -462,77 +625,28 @@ export const PlayerUI = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-              <div className="lg:col-span-4 flex flex-col justify-center">
-                <div className="mb-4">
-                  <div
-                    className="text-xs tracking-[0.3em] mb-4"
-                    style={{
-                      color: "#666",
-                      fontWeight: 300,
-                    }}
-                  >
-                    VOLUME
-                  </div>
-                  <div
-                    className="relative h-1 rounded-full"
-                    style={{
-                      background: "rgba(255,255,255,0.05)",
-                    }}
-                  >
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={volume}
-                      onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                      disabled={!isPowerOn}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 disabled:cursor-not-allowed"
-                    />
-                    <div
-                      className="absolute inset-y-0 left-0 rounded-full transition-all"
-                      style={{
-                        width: `${volume}%`,
-                        background: "rgba(255,255,255,0.3)",
-                      }}
-                    ></div>
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full"
-                      style={{
-                        left: `${volume}%`,
-                        transform: "translate(-50%, -50%)",
-                        background: "#fff",
-                        boxShadow: "0 0 10px rgba(255,255,255,0.5)",
-                      }}
-                    ></div>
-                  </div>
-                  <div
-                    className="flex justify-between mt-2 text-[10px] tracking-wider"
-                    style={{
-                      color: "#666",
-                    }}
-                  >
-                    <span>0</span>
-                    <span className="font-mono" style={{ color: "#fff" }}>
-                      {volume}
-                    </span>
-                    <span>100</span>
-                  </div>
-                </div>
+              <div className="lg:col-span-4 flex flex-col justify-center items-start">
+                <ControlKnob
+                  value={volume}
+                  onChange={handleVolumeChange}
+                  label="VOLUME"
+                  disabled={!isPowerOn}
+                  size="lg"
+                />
               </div>
 
-              <div className="lg:col-span-5">
-                {currentStation ? (
-                  <StationList
-                    stations={stations}
-                    selectedStation={currentStation}
-                    onSelectStation={handleSelectStation}
-                    isPowerOn={isPowerOn}
-                  />
-                ) : (
-                  <div className="text-xs tracking-[0.3em]" style={{ color: "#666" }}>
-                    LOADING PRESETS
-                  </div>
-                )}
+              <div className="lg:col-span-5 flex items-center justify-center">
+                <button
+                  onClick={() => setRadioModalOpen(true)}
+                  className="px-6 py-3 rounded-full text-xs tracking-[0.3em]"
+                  style={{
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    color: "#bbb",
+                    background: "rgba(255,255,255,0.02)",
+                  }}
+                >
+                  SEARCH RADIO
+                </button>
               </div>
 
               <div className="lg:col-span-3 flex flex-row lg:flex-col justify-center items-center gap-10">
@@ -551,6 +665,396 @@ export const PlayerUI = () => {
           ></div>
         </div>
       </div>
+
+      {radioModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0"
+            style={{ background: "rgba(0,0,0,0.7)" }}
+            onClick={() => setRadioModalOpen(false)}
+          />
+          <div
+            className="relative w-full max-w-2xl rounded-lg p-6"
+            style={{
+              background: "#0e0e0e",
+              border: "1px solid rgba(255,255,255,0.08)",
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-xs tracking-[0.3em]" style={{ color: "#777" }}>
+                SEARCH RADIO STATIONS
+              </div>
+              <button
+                onClick={() => setRadioModalOpen(false)}
+                className="text-xs tracking-[0.2em]"
+                style={{ color: "#777" }}
+              >
+                CLOSE
+              </button>
+            </div>
+            <div className="flex gap-3 mb-4">
+              <input
+                value={radioQuery}
+                onChange={(e) => setRadioQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") searchRadios();
+                }}
+                placeholder="Search stations..."
+                className="flex-1 px-4 py-2 rounded-md bg-black/40 text-sm"
+                style={{ border: "1px solid rgba(255,255,255,0.08)", color: "#ddd" }}
+              />
+              <button
+                onClick={searchRadios}
+                className="px-4 py-2 rounded-md text-xs tracking-[0.2em]"
+                style={{
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  color: "#ddd",
+                }}
+              >
+                SEARCH
+              </button>
+            </div>
+            <div className="max-h-[360px] overflow-auto space-y-2">
+              {radioLoading ? (
+                <div className="text-xs tracking-[0.3em]" style={{ color: "#666" }}>
+                  LOADING...
+                </div>
+              ) : radioResults.length > 0 ? (
+                radioResults.map((station) => (
+                  <button
+                    key={station.id}
+                    onClick={() => handleSelectStation(station)}
+                    className="w-full text-left px-4 py-3 rounded-md"
+                    style={{
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.05)",
+                    }}
+                  >
+                    <div className="text-sm" style={{ color: "#fff" }}>
+                      {station.name}
+                    </div>
+                    <div className="text-xs" style={{ color: "#888" }}>
+                      {station.genre}
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="text-xs tracking-[0.3em]" style={{ color: "#666" }}>
+                  NO RESULTS
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {spotifyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0"
+            style={{ background: "rgba(0,0,0,0.7)" }}
+            onClick={() => setSpotifyModalOpen(false)}
+          />
+          <div
+            className="relative w-full max-w-2xl rounded-lg p-6"
+            style={{
+              background: "#0e0e0e",
+              border: "1px solid rgba(255,255,255,0.08)",
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-xs tracking-[0.3em]" style={{ color: "#777" }}>
+                {spotifyView === "search" ? "SEARCH SPOTIFY" : "SPOTIFY DETAILS"}
+              </div>
+              <button
+                onClick={() => setSpotifyModalOpen(false)}
+                className="text-xs tracking-[0.2em]"
+                style={{ color: "#777" }}
+              >
+                CLOSE
+              </button>
+            </div>
+            {spotifyView === "search" ? (
+              <>
+                <div className="flex gap-3 mb-4">
+                  <input
+                    value={spotifyQuery}
+                    onChange={(e) => setSpotifyQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") searchSpotify();
+                    }}
+                    placeholder="Search tracks, playlists, or albums..."
+                    className="flex-1 px-4 py-2 rounded-md bg-black/40 text-sm"
+                    style={{ border: "1px solid rgba(255,255,255,0.08)", color: "#ddd" }}
+                  />
+                  <button
+                    onClick={searchSpotify}
+                    className="px-4 py-2 rounded-md text-xs tracking-[0.2em]"
+                    style={{
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      color: "#ddd",
+                    }}
+                  >
+                    SEARCH
+                  </button>
+                </div>
+                {!spotifyConnected && (
+                  <div className="text-xs tracking-[0.2em] mb-3" style={{ color: "#777" }}>
+                    CONNECT SPOTIFY TO SEARCH
+                  </div>
+                )}
+                <div className="max-h-[360px] overflow-auto space-y-3">
+                  {spotifyLoading ? (
+                    <div className="text-xs tracking-[0.3em]" style={{ color: "#666" }}>
+                      LOADING...
+                    </div>
+                  ) : (
+                    <>
+                      {spotifyTracks.length > 0 && (
+                        <div>
+                          <div className="text-xs tracking-[0.3em] mb-2" style={{ color: "#666" }}>
+                            TRACKS
+                          </div>
+                          <div className="space-y-2">
+                            {spotifyTracks.map((track) => (
+                              <button
+                                key={track.id}
+                                onClick={async () => {
+                                  const deviceId = await ensureSpotifyDevice();
+                                  if (!deviceId) {
+                                    alert("Spotify device not ready. Try again in a second.");
+                                    return;
+                                  }
+                                  await fetch("/api/spotify/transfer", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ deviceId, play: false }),
+                                  });
+                                  await fetch("/api/spotify/play", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                      uri: track.uri,
+                                      type: "track",
+                                      deviceId,
+                                    }),
+                                  });
+                                }}
+                                className="w-full text-left px-4 py-3 rounded-md"
+                                style={{
+                                  background: "rgba(255,255,255,0.03)",
+                                  border: "1px solid rgba(255,255,255,0.05)",
+                                }}
+                              >
+                                <div className="text-sm" style={{ color: "#fff" }}>
+                                  {track.name}
+                                </div>
+                                <div className="text-xs" style={{ color: "#888" }}>
+                                  {track.artists}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {spotifyPlaylists.length > 0 && (
+                        <div>
+                          <div className="text-xs tracking-[0.3em] mb-2" style={{ color: "#666" }}>
+                            PLAYLISTS
+                          </div>
+                          <div className="space-y-2">
+                            {spotifyPlaylists.map((playlist) => (
+                              <button
+                                key={playlist.id}
+                                onClick={() =>
+                                  openPlaylistDetail(playlist.id, playlist.name, playlist.uri)
+                                }
+                                className="w-full text-left px-4 py-3 rounded-md"
+                                style={{
+                                  background: "rgba(255,255,255,0.03)",
+                                  border: "1px solid rgba(255,255,255,0.05)",
+                                }}
+                              >
+                                <div className="text-sm" style={{ color: "#fff" }}>
+                                  {playlist.name}
+                                </div>
+                                <div className="text-xs" style={{ color: "#888" }}>
+                                  by {playlist.owner}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {spotifyAlbums.length > 0 && (
+                        <div>
+                          <div className="text-xs tracking-[0.3em] mb-2" style={{ color: "#666" }}>
+                            ALBUMS
+                          </div>
+                          <div className="space-y-2">
+                            {spotifyAlbums.map((album) => (
+                              <button
+                                key={album.id}
+                                onClick={() => openAlbumDetail(album.id, album.name, album.uri)}
+                                className="w-full text-left px-4 py-3 rounded-md"
+                                style={{
+                                  background: "rgba(255,255,255,0.03)",
+                                  border: "1px solid rgba(255,255,255,0.05)",
+                                }}
+                              >
+                                <div className="text-sm" style={{ color: "#fff" }}>
+                                  {album.name}
+                                </div>
+                                <div className="text-xs" style={{ color: "#888" }}>
+                                  {album.artists}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {!spotifyTracks.length && !spotifyPlaylists.length && !spotifyAlbums.length && (
+                        <div className="text-xs tracking-[0.3em]" style={{ color: "#666" }}>
+                          NO RESULTS
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <button
+                  onClick={() => setSpotifyView("search")}
+                  className="text-xs tracking-[0.2em]"
+                  style={{ color: "#777" }}
+                >
+                  ← BACK
+                </button>
+                <div className="text-sm" style={{ color: "#fff" }}>
+                  {spotifyDetailTitle}
+                </div>
+                {spotifyDetailUri && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        const deviceId = await ensureSpotifyDevice();
+                        if (!deviceId) {
+                          alert("Spotify device not ready. Try again in a second.");
+                          return;
+                        }
+                        await fetch("/api/spotify/transfer", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ deviceId, play: false }),
+                        });
+                        await fetch("/api/spotify/play", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            uri: spotifyDetailUri,
+                            type: "context",
+                            deviceId,
+                          }),
+                        });
+                      }}
+                      className="px-3 py-2 rounded-md text-xs tracking-[0.2em]"
+                      style={{
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        color: "#ddd",
+                      }}
+                    >
+                      PLAY ALL
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const deviceId = await ensureSpotifyDevice();
+                        if (!deviceId) {
+                          alert("Spotify device not ready. Try again in a second.");
+                          return;
+                        }
+                        fetch("/api/spotify/queue", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ uri: spotifyDetailUri, deviceId }),
+                        });
+                      }}
+                      className="px-3 py-2 rounded-md text-xs tracking-[0.2em]"
+                      style={{
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        color: "#ddd",
+                      }}
+                    >
+                      QUEUE ALL
+                    </button>
+                  </div>
+                )}
+                <div className="max-h-[360px] overflow-auto space-y-2">
+                  {spotifyDetailTracks.map((track) => (
+                    <button
+                      key={track.id}
+                      onClick={async () => {
+                        const deviceId = await ensureSpotifyDevice();
+                        if (!deviceId) {
+                          alert("Spotify device not ready. Try again in a second.");
+                          return;
+                        }
+                        await fetch("/api/spotify/transfer", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ deviceId, play: false }),
+                        });
+                        await fetch("/api/spotify/play", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            uri: track.uri,
+                            type: "track",
+                            deviceId,
+                          }),
+                        });
+                      }}
+                      className="w-full text-left px-4 py-3 rounded-md"
+                      style={{
+                        background: "rgba(255,255,255,0.03)",
+                        border: "1px solid rgba(255,255,255,0.05)",
+                      }}
+                    >
+                      <div className="text-sm" style={{ color: "#fff" }}>
+                        {track.name}
+                      </div>
+                      <div className="text-xs" style={{ color: "#888" }}>
+                        {track.artists}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const deviceId = await ensureSpotifyDevice();
+                            if (!deviceId) {
+                              alert("Spotify device not ready. Try again in a second.");
+                              return;
+                            }
+                            fetch("/api/spotify/queue", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ uri: track.uri, deviceId }),
+                            });
+                          }}
+                          className="px-2 py-1 rounded text-[10px] tracking-[0.2em]"
+                          style={{ border: "1px solid rgba(255,255,255,0.08)", color: "#aaa" }}
+                        >
+                          QUEUE
+                        </button>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

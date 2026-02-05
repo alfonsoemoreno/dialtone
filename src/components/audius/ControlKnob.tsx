@@ -5,12 +5,22 @@ interface ControlKnobProps {
   onChange: (value: number) => void;
   label: string;
   disabled?: boolean;
+  size?: "md" | "lg";
 }
 
-export function ControlKnob({ value, onChange, label, disabled = false }: ControlKnobProps) {
+export function ControlKnob({
+  value,
+  onChange,
+  label,
+  disabled = false,
+  size = "md",
+}: ControlKnobProps) {
   const [isDragging, setIsDragging] = useState(false);
   const startYRef = useRef(0);
   const startValueRef = useRef(0);
+
+  const outerSize = size === "lg" ? "w-28 h-28 md:w-32 md:h-32" : "w-16 h-16 md:w-20 md:h-20";
+  const innerSize = size === "lg" ? "w-24 h-24 md:w-28 md:h-28" : "w-14 h-14 md:w-18 md:h-18";
 
   const rotation = (value / 100) * 270 - 135;
 
@@ -50,7 +60,7 @@ export function ControlKnob({ value, onChange, label, disabled = false }: Contro
       
       {/* Minimalist knob */}
       <div
-        className="relative w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center"
+        className={`relative ${outerSize} rounded-full flex items-center justify-center`}
         onPointerDown={handlePointerDown}
         style={{
           background: 'rgba(255,255,255,0.02)',
@@ -61,7 +71,7 @@ export function ControlKnob({ value, onChange, label, disabled = false }: Contro
       >
         
         <div
-          className={`w-14 h-14 md:w-18 md:h-18 rounded-full ${
+          className={`${innerSize} rounded-full ${
             disabled ? 'opacity-30 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'
           } relative`}
           style={{

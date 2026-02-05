@@ -12,6 +12,7 @@ declare global {
       track_window: {
         current_track: {
           name: string;
+          album?: { name: string };
           artists: { name: string }[];
         };
       };

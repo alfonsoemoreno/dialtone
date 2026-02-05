@@ -26,7 +26,10 @@ export async function POST(request: Request) {
       body: JSON.stringify(payload),
     });
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ ok: false }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: error instanceof Error ? error.message : "Spotify play failed" },
+      { status: 500 }
+    );
   }
 }

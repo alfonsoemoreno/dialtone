@@ -37,9 +37,9 @@ export function Equalizer() {
               onChange={(e) => handleBandChange(i, Number(e.target.value))}
               className="w-full h-24"
               style={{
-                writingMode: 'bt-lr',
+                writingMode: 'vertical-rl',
                 WebkitAppearance: 'slider-vertical',
-                appearance: 'slider-vertical',
+                appearance: 'none',
                 background: 'rgba(255,255,255,0.05)',
                 outline: 'none',
                 borderRadius: '4px',
